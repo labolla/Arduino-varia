@@ -1,10 +1,18 @@
 #include "pitches.h"
 
-#define SONG_SIZE   55
+#define DIATONIC_SCALE
 
+#if defined (DIATONIC_SCALE)
 int scale[] = { NOTE_C4, NOTE_D4, NOTE_E4, NOTE_F4, NOTE_G4, NOTE_A4, NOTE_B4,
                 NOTE_C5, NOTE_D5, NOTE_E5, NOTE_F5, NOTE_G5, NOTE_A5, NOTE_B5};
+#endif
 
+//#define XMAS_MELODY
+#if defined (XMAS_MELODY)
+#define MELODY
+/* Xmas melody section:
+   define melody size, pitches (0 means silence) and duration */
+#define SONG_SIZE   55
 int melody[] = {NOTE_G4,NOTE_G4, NOTE_A4, NOTE_G4, NOTE_E4, 0, 
                 0, NOTE_G4, NOTE_A4, NOTE_G4, NOTE_E4, 0,
                 NOTE_D5, NOTE_D5, NOTE_B4, NOTE_B4,
@@ -30,103 +38,42 @@ double duration [] = {1, 1.5, 0.5, 1, 2.5, 0.5,
                    3, 2.5, 0.5,
                    1, 1, 1, 1, 1, 1,
                    3};
+#endif
 
-// LED defines
-int RED_PIN = 5;
-int GREEN_PIN = 6;
-int BLUE_PIN = 9;
+// GPIOs defines for LED, speaker and "analog soft button"
+#define RED_PIN  5
+#define GREEN_PIN 6
+#define BLUE_PIN 9
+#define SPK_PIN  10
+#define SOFT_PIN A2
 
-int SPK_PIN = 10;
+// MIN_MAX minimum delta "press sensor" is considered calibrated
+#define PEAK_2_PEAK 20
 
-const int soft_pin = A2;
-//const int hard_pin = A5;
-#define DELTA 10
-
-int red_level[6] =  {0, 10, 30, 70, 140, 250};
-int blue_level[6] =  {0, 10, 30, 70, 140, 250};
-int green_level[6] =  {0, 10, 30, 70, 140, 250};
-
-int val_delta[6] = {-10, -5, 0, +2, +4, +6 };
-
+// minumum analog pressed value to consider the soft button been pressed
 #define ACTIVE_DELTA  20
-#define SAMPLE_PRESS 330
 
-void display_led(int value)
-{
-  static int red, blue, green;
-  int delta_red, delta_blue, delta_green;
-  
-  delta_red = value%6;
-  delta_blue = ((value-delta_red)/6)%6;
-  delta_green = ((value-delta_red-delta_blue*6)/36)%6;
+// duration of a pitch in ms
+#define SAMPLE_DURATION_MS 330
+// rfresh period in ms for RB led when playing a new note
+#define RGB_REFRESH_PERIOD_MS      50
 
-  if ((red + val_delta[delta_red])> 255)
-  {
-    red = 255;
-  }
-  else if ((red + val_delta[delta_red])< 0)
-  {
-    red = 0;
-  }
-  else
-  {
-    red = red + val_delta[delta_red];
-  }
 
-  if ((green + val_delta[delta_green])> 255)
-  {
-    green = 255;
-  }
-  else if ((green + val_delta[delta_green])< 0)
-  {
-    green = 0;
-  }
-  else
-  {
-    green = green + val_delta[delta_green];
-  }
-
-  if ((blue + val_delta[delta_blue])> 255)
-  {
-    blue = 255;
-  }
-  else if ((blue + val_delta[delta_blue])< 0)
-  {
-    blue = 0;
-  }
-  else
-  {
-    blue = blue + val_delta[delta_blue];
-  }
-
-  /*Serial.print(value);
-  Serial.print('\t');
-  Serial.print(red);
-  Serial.print('\t');
-  Serial.print(blue);
-  Serial.print('\t');
-  Serial.println(green);*/
-
-/*  analogWrite(RED_PIN, 255-red_level[red]);
-  analogWrite(GREEN_PIN, 255-green_level[green]);
-  analogWrite(BLUE_PIN, 255-blue_level[blue]);
-*/
-  analogWrite(RED_PIN, 255-red);
-  analogWrite(GREEN_PIN, 255-green);
-  analogWrite(BLUE_PIN, 255-blue);
-
-  
-}
-
+// routine to play the RGB led based on pitch; 
+// LED color is not played immediately but it is reached from current status to desired one in 50 ms long step
 void play_led(int duration, int pitch)
 {
-  int steps = duration / 50;
+  // static variable to save current RGB led value (0 is off and 255 is on; it will be inversed on displaying based on used LED)
   static int red = 0;
   static int green = 0;
   static int blue = 0;
+  // desired RGB led value mapping the pitch being played
   int redTarget, greenTarget, blueTarget;
+  // RGB is adjusted every
+  int steps = duration / RGB_REFRESH_PERIOD_MS;
   int greenStep, blueStep, redStep;
 
+//TODO: extend to cover all chromatics scales; my change color for note on different octaves (C4 and C5)
   switch (pitch)
   {
   case NOTE_C4:
@@ -141,7 +88,6 @@ void play_led(int duration, int pitch)
   redTarget = 110;
   blueTarget = 150;
   greenTarget = 0;
-
   break;
   
   case NOTE_E4:
@@ -149,7 +95,6 @@ void play_led(int duration, int pitch)
   redTarget = 0;
   blueTarget = 255;
   greenTarget = 0;
-
   break;
   
   case NOTE_F4:
@@ -157,7 +102,6 @@ void play_led(int duration, int pitch)
   redTarget = 0;
   blueTarget = 110;
   greenTarget = 150;
-
   break;
   
   case NOTE_G4:
@@ -165,7 +109,6 @@ void play_led(int duration, int pitch)
   redTarget = 0;
   blueTarget = 0;
   greenTarget = 255;
-
   break;
   
   case NOTE_A4:
@@ -173,7 +116,6 @@ void play_led(int duration, int pitch)
   redTarget = 110;
   blueTarget = 0;
   greenTarget = 150;
-
   break;
   
   case NOTE_B4:
@@ -181,14 +123,12 @@ void play_led(int duration, int pitch)
   redTarget = 150;
   blueTarget = 110;
   greenTarget = 150;
-
   break;
   
   default:
   redTarget = 0;
   blueTarget = 0;
   greenTarget = 0;
-
   break;
   }
 
@@ -218,7 +158,7 @@ void play_led(int duration, int pitch)
     analogWrite(GREEN_PIN, 255-green);
     analogWrite(BLUE_PIN, 255-blue);
 
-    delay(50);
+    delay(RGB_REFRESH_PERIOD_MS);
   }
 
 }
@@ -226,7 +166,7 @@ void play_led(int duration, int pitch)
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  pinMode(A2, INPUT_PULLUP);
+  pinMode(SOFT_PIN, INPUT_PULLUP);
   pinMode(SPK_PIN, OUTPUT);
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
@@ -234,22 +174,30 @@ void setup() {
 }
 
 void loop() {
-  int soft_dick = 0;
+  // static value to tace min, max, average of last 8 samples, absolute max and min and consecutive inactive press
   static int minVal = 2000;
   static int maxVal = 0;
   static int avr = 0;
   static int absMaxVal = 0;
   static int absMinVal = 2000;
   static int inactive_cnt=0;
+  //"press sensor" analog value
+  int soft_pressure = 0;
+  // delta between min "press sensor" value and current one; it measure current press action
   int pressed_delta;
-  static bool started = false;
-  static int toPlay = 0;
-  static unsigned int duration_cnt = 0;
-  static int last_pressed_delta = 0;
-  static bool starting = false;
+  // prev pressed_delta to keep track if pressure sensor is not "blocking"
+  static int prev_pressed_delta = 0;
+  static int is_blocking_cnt = 0;
+  static bool press_sensor_calibrated = false;
+  static bool play_melody = true;
+  // to swing alternatevely do a 2/3 and 1/3,.... i.e. alternatevely divide by 2 sample_duration
+  static int swing_state = 0;
+  int sample_duration;
 
-  if (starting)
+#if defined(MELODY)
+  if (play_melody)
   {
+    Serial.print("Playing Melody ... ");
     for (int thisNote = 0; thisNote < SONG_SIZE ; thisNote++)
     {
       //display_led(map(melody[thisNote]-NOTE_C3,0, NOTE_C5-NOTE_C3, 0, 215));
@@ -266,27 +214,27 @@ void loop() {
       int pauseBetweenNotes =100;
       delay(pauseBetweenNotes);
    }
-   starting = false;
-   Serial.println("Started");
+   play_melody = false;
+   Serial.println("... done. You can press to play !!");
   }
+#endif
 
-  soft_dick = analogRead(soft_pin);
+  soft_pressure = analogRead(SOFT_PIN);
 
-  absMaxVal = max(soft_dick, absMaxVal);
-  absMinVal = min(soft_dick, absMinVal);
-  avr = (avr * 7 + soft_dick) / 8;
+  absMaxVal = max(soft_pressure, absMaxVal);
+  absMinVal = min(soft_pressure, absMinVal);
+  avr = (avr * 7 + soft_pressure) / 8;
 
-  if (((avr - absMinVal) > DELTA) && ((absMaxVal- avr) > DELTA))
+  if (((avr - absMinVal) > PEAK_2_PEAK/2) && ((absMaxVal- avr) > PEAK_2_PEAK/2))
   {
       maxVal = max(avr, maxVal);
       minVal = min(avr, minVal);
-      started = true;
-      
+      press_sensor_calibrated = true;      
   }
 
   pressed_delta = avr - minVal;
 
-  Serial.print(soft_dick);
+  Serial.print(soft_pressure);
   Serial.print('\t');
   Serial.print(avr);
   Serial.print('\t');
@@ -295,12 +243,20 @@ void loop() {
   Serial.print(minVal);
   Serial.print('\t');
   Serial.println(maxVal);
-
+  
+  if (swing_state)
+  {
+    sample_duration = SAMPLE_DURATION_MS / 2;
+    swing_state = 0;
+  }
+  else
+  {
+    sample_duration = SAMPLE_DURATION_MS;
+    swing_state = 1;
+  }
 
   if (pressed_delta > ACTIVE_DELTA)
-  {
-    if (pressed_delta > ACTIVE_DELTA)
-    {   
+  {  
       inactive_cnt = 0;
 
       int noteIdx = map(pressed_delta,0, maxVal-minVal, 0, 13);
@@ -308,13 +264,21 @@ void loop() {
       Serial.print('\t');
       Serial.println(maxVal);
       tone(SPK_PIN, scale[noteIdx]);
-      play_led(SAMPLE_PRESS, scale[noteIdx]);
+      play_led(sample_duration, scale[noteIdx]);
       noTone(SPK_PIN);
-    }
+
+      if ((pressed_delta == prev_pressed_delta) &&  (pressed_delta > ACTIVE_DELTA*2))
+      {
+        is_blocking_cnt++;
+        if (is_blocking_cnt == 4 )
+        {
+          minVal = avr;
+        }
+      }
   }
   else
   {
-    if (started)
+    if (press_sensor_calibrated)
     {
       //reset min once a while
       inactive_cnt = inactive_cnt + 1;
@@ -325,8 +289,10 @@ void loop() {
       }
     }
     noTone(SPK_PIN);
-    play_led(SAMPLE_PRESS, 0);
+    play_led(sample_duration, 0);
   }
+
+  prev_pressed_delta = pressed_delta;
 
   delay(20);
 }
