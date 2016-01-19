@@ -1,4 +1,6 @@
+#include <SoftPressSensor.h>
 #include "pitches.h"
+
 
 #define DIATONIC_SCALE
 
@@ -47,16 +49,12 @@ double duration [] = {1, 1.5, 0.5, 1, 2.5, 0.5,
 #define SPK_PIN  10
 #define SOFT_PIN A2
 
-// MIN_MAX minimum delta "press sensor" is considered calibrated
-#define PEAK_2_PEAK 20
-
-// minumum analog pressed value to consider the soft button been pressed
-#define ACTIVE_DELTA  20
-
 // duration of a pitch in ms
 #define SAMPLE_DURATION_MS 330
 // rfresh period in ms for RB led when playing a new note
 #define RGB_REFRESH_PERIOD_MS      50
+
+SoftPressSensor softPress(SOFT_PIN);
 
 
 // routine to play the RGB led based on pitch; 
@@ -166,7 +164,6 @@ void play_led(int duration, int pitch)
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  pinMode(SOFT_PIN, INPUT_PULLUP);
   pinMode(SPK_PIN, OUTPUT);
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
@@ -174,21 +171,6 @@ void setup() {
 }
 
 void loop() {
-  // static value to tace min, max, average of last 8 samples, absolute max and min and consecutive inactive press
-  static int minVal = 2000;
-  static int maxVal = 0;
-  static int avr = 0;
-  static int absMaxVal = 0;
-  static int absMinVal = 2000;
-  static int inactive_cnt=0;
-  //"press sensor" analog value
-  int soft_pressure = 0;
-  // delta between min "press sensor" value and current one; it measure current press action
-  int pressed_delta;
-  // prev pressed_delta to keep track if pressure sensor is not "blocking"
-  static int prev_pressed_delta = 0;
-  static int is_blocking_cnt = 0;
-  static bool press_sensor_calibrated = false;
   static bool play_melody = true;
   // to swing alternatevely do a 2/3 and 1/3,.... i.e. alternatevely divide by 2 sample_duration
   static int swing_state = 0;
@@ -217,32 +199,7 @@ void loop() {
    play_melody = false;
    Serial.println("... done. You can press to play !!");
   }
-#endif
-
-  soft_pressure = analogRead(SOFT_PIN);
-
-  absMaxVal = max(soft_pressure, absMaxVal);
-  absMinVal = min(soft_pressure, absMinVal);
-  avr = (avr * 7 + soft_pressure) / 8;
-
-  if (((avr - absMinVal) > PEAK_2_PEAK/2) && ((absMaxVal- avr) > PEAK_2_PEAK/2))
-  {
-      maxVal = max(avr, maxVal);
-      minVal = min(avr, minVal);
-      press_sensor_calibrated = true;      
-  }
-
-  pressed_delta = avr - minVal;
-
-  Serial.print(soft_pressure);
-  Serial.print('\t');
-  Serial.print(avr);
-  Serial.print('\t');
-  Serial.print(pressed_delta);
-  Serial.print('\t');
-  Serial.print(minVal);
-  Serial.print('\t');
-  Serial.println(maxVal);
+#endif  
   
   if (swing_state)
   {
@@ -255,44 +212,20 @@ void loop() {
     swing_state = 1;
   }
 
-  if (pressed_delta > ACTIVE_DELTA)
-  {  
-      inactive_cnt = 0;
-
-      int noteIdx = map(pressed_delta,0, maxVal-minVal, 0, 13);
-      Serial.print(noteIdx);
-      Serial.print('\t');
-      Serial.println(maxVal);
+  // read value from "Soft Pressure" sensor
+  int readVal = softPress.read();
+  if (readVal && readVal != NOT_CALIBRATED)
+  {        
+      int noteIdx = map(readVal,0, softPress.getRange(), 0, 13);
       tone(SPK_PIN, scale[noteIdx]);
       play_led(sample_duration, scale[noteIdx]);
       noTone(SPK_PIN);
-
-      if ((pressed_delta == prev_pressed_delta) &&  (pressed_delta > ACTIVE_DELTA*2))
-      {
-        is_blocking_cnt++;
-        if (is_blocking_cnt == 4 )
-        {
-          minVal = avr;
-        }
-      }
   }
   else
   {
-    if (press_sensor_calibrated)
-    {
-      //reset min once a while
-      inactive_cnt = inactive_cnt + 1;
-      if (inactive_cnt == 10)
-      {
-        inactive_cnt = 0;
-        minVal = avr;  //may be replaced with avr during inactive window
-      }
-    }
     noTone(SPK_PIN);
     play_led(sample_duration, 0);
   }
-
-  prev_pressed_delta = pressed_delta;
 
   delay(20);
 }
