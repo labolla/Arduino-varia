@@ -1,6 +1,6 @@
 /*
-  Blink
-  Turns on an LED on for one second, then off for one second, repeatedly.
+  Controlled Blink
+  Contorl led by serial..
  
   This example code is in the public domain.
  */
