@@ -39,7 +39,8 @@ List starts from basic ones to control Led and Speaker to perform basic audio&vi
 
 ####### Dynamic Fading LED playing processed in ISR
 
-  TODO: define a library for a Fading LED to be re-used.
+  TODO: defined a library for a Fading LED that currently is used only by Mantravola_ledEffects.
+        status: verify only compilation; need to verify functionality and re-use in myLedFaderMulitTask_1
 
   ### myISR_exp
   Simple example that show the TIMER0 ISR usage.
